@@ -217,7 +217,7 @@ class MainCanvas(tk.Canvas):
     def link_nodes(self, node1, node2):
         x1, y1 = self.coords(node1.handle)
         x2, y2 = self.coords(node2.handle)
-        linkhandle = self.create_line(x1, y1, x2, y2, arrow='last')
+        linkhandle = self.create_line(x1, y1, x2, y2, arrow='last',tags="edge")
         self.edges.append((linkhandle, node1, node2))
         node1.outgoingEdgeHandles.append(linkhandle)
         node2.incomingEdgeHandles.append(linkhandle)
