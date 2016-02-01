@@ -83,6 +83,33 @@ class Node(object):
             textSequences.append(listofcontents)
         return textSequences
 
+    @staticmethod
+    def relayout_graph(canvas, layoutMethod="spring"):
+        # calculate new node positions
+        width = canvas.winfo_width()
+        height = canvas.winfo_height()
+        canvasCenter = list(map(int, [.5 * width, .5 * height]))  # center of canvas
+        minreq = min(width, height)
+        graph = Node.G
+        if layoutMethod == "circular":
+            pos = nx.circular_layout(graph, scale=.4 * minreq, center=canvasCenter)
+        elif layoutMethod == "spring":
+            pos = nx.spring_layout(graph, scale=.4 * minreq, center=canvasCenter)
+        elif layoutMethod == "shell":
+            pos = nx.shell_layout(graph, scale=.4 * minreq, center=canvasCenter)
+        elif layoutMethod == 'spectral':
+            pos = nx.spectral_layout(graph, scale=.4 * minreq, center=canvasCenter)
+
+        # update the node positions, and move them on the canvas
+        for key, position in pos.items():
+            node = Node.uidLookup[key]
+            node.x, node.y = position[0], position[1]
+            canvas.coords(node.handle, node.x, node.y)
+
+        # update the edge handles
+        canvas.update_edges()
+
+
     # ==================================================
     # Functions for tkinter
     # ==================================================
@@ -217,7 +244,7 @@ class MainCanvas(tk.Canvas):
     def link_nodes(self, node1, node2):
         x1, y1 = self.coords(node1.handle)
         x2, y2 = self.coords(node2.handle)
-        linkhandle = self.create_line(x1, y1, x2, y2, arrow='last',tags="edge")
+        linkhandle = self.create_line(x1, y1, x2, y2, arrow='last', tags="edge")
         self.edges.append((linkhandle, node1, node2))
         node1.outgoingEdgeHandles.append(linkhandle)
         node2.incomingEdgeHandles.append(linkhandle)
@@ -234,9 +261,7 @@ class MainCanvas(tk.Canvas):
                 node = Node.handleLookup[self.find_withtag(tk.CURRENT)[0]]
                 node.x, node.y = event.x, event.y  # update x and y
                 self.coords(node.handle, node.x, node.y)
-                # update the coordinates for all the edges in the graph 
-                # Note: Right now this is low overhead since the graphs are not large
-                #       But it may be worth refactoring this to update only individual edges in the future
+                # update the coordinates for all the edges in the graph (Right now this is low overhead since the graphs are not large)
                 self.update_edges()
 
     def edit_node(self, event):
@@ -262,10 +287,33 @@ class Toolbar(tk.LabelFrame):
 
     def __init__(self, parent, *args, **kwargs):
         tk.LabelFrame.__init__(self, parent, *args, **kwargs)
+        self.parent = parent
         self.backButton = tk.Button(self, text="BACK", command=self.on_back_button)
         self.forwardButton = tk.Button(self, text="FORWARD", command=self.on_forward_button)
         self.backButton.pack(side='left', expand=False)
         self.forwardButton.pack(side='left', expand=False)
+        self.layoutLabelframe = tk.LabelFrame(self, text="Layout")
+        self.layoutLabelframe.pack(side='left', expand=False)
+        self.springLayoutButton = tk.Button(self.layoutLabelframe, text="Spring", command=self.relayout_spring)
+        self.spectralLayoutButton = tk.Button(self.layoutLabelframe, text="Spectral", command=self.relayout_spectral)
+        self.circularLayoutButton = tk.Button(self.layoutLabelframe, text="Circular", command=self.relayout_circular)
+        self.shellLayoutButton = tk.Button(self.layoutLabelframe, text="Shell", command=self.relayout_shell)
+        self.springLayoutButton.pack(side='left', expand=False)
+        self.spectralLayoutButton.pack(side='left', expand=False)
+        self.circularLayoutButton.pack(side='left', expand=False)
+        self.shellLayoutButton.pack(side='left', expand=False)
+
+    def relayout_spring(self):
+        Node.relayout_graph(self.parent.main.canvas, layoutMethod="spring")
+
+    def relayout_spectral(self):
+        Node.relayout_graph(self.parent.main.canvas, layoutMethod="spectral")
+
+    def relayout_circular(self):
+        Node.relayout_graph(self.parent.main.canvas, layoutMethod="circular")
+
+    def relayout_shell(self):
+        Node.relayout_graph(self.parent.main.canvas, layoutMethod="shell")
 
     def on_back_button(self):
         raise NotImplementedError
