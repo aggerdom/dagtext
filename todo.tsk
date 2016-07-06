@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<?taskcoach release="1.4.2" tskversion="37"?>
+
+<tasks>
+<task creationDateTime="2016-02-07 00:19:36.689000" id="613e460f-cd5a-11e5-aa55-d067e53e7818" modificationDateTime="2016-02-07 00:20:01.773000" status="1" subject="create windowhandle" />
+<task creationDateTime="2016-02-07 00:20:04.512000" id="71d3ba00-cd5a-11e5-9fdb-d067e53e7818" modificationDateTime="2016-02-07 00:20:39.612000" status="1" subject="make sure the arrows are under the windows">
+<description>
+use canvas.lift on the windows
+
+</description>
+</task>
+<task creationDateTime="2016-02-07 00:20:42.638000" id="888d4ae1-cd5a-11e5-9081-d067e53e7818" modificationDateTime="2016-02-07 00:21:34.236000" status="1" subject="create button to open the external editor" />
+<task creationDateTime="2016-02-07 00:21:16.014000" id="9c7210de-cd5a-11e5-a48a-d067e53e7818" modificationDateTime="2016-02-07 00:21:22.811000" status="1" subject="create button to open the internal editor" />
+<task creationDateTime="2016-02-07 00:21:35.834000" id="a8425ba1-cd5a-11e5-876a-d067e53e7818" modificationDateTime="2016-02-07 00:22:34.479000" status="1" subject="logic for the drag and drop of window">
+<description>
+use the dx, dy of the cursor from center of the window
+
+</description>
+</task>
+<category creationDateTime="2015-11-29 16:49:40.905000" id="17ffc98f-96e3-11e5-9561-d067e53e7818" modificationDateTime="2015-11-29 16:49:50.545000" status="1" subject="graduate school applications" />
+<category creationDateTime="2015-11-29 16:49:52.231000" id="1ebfff70-96e3-11e5-94af-d067e53e7818" modificationDateTime="2015-11-29 16:49:59.745000" status="1" subject="BIOLOGY" />
+<category creationDateTime="2015-11-29 16:52:02.725000" id="6c87cd4f-96e3-11e5-9548-d067e53e7818" modificationDateTime="2015-11-29 16:52:04.915000" status="1" subject="thesis" />
+<syncmlconfig>
+<TaskCoach-0000015155309d637089ea130021002100210001>
+<spds>
+<sources>
+<TaskCoach-0000015155309d637089ea130021002100210001.Tasks />
+<TaskCoach-0000015155309d637089ea130021002100210001.Notes />
+</sources>
+<syncml>
+<Auth />
+<Conn />
+</syncml>
+</spds>
+</TaskCoach-0000015155309d637089ea130021002100210001>
+</syncmlconfig>
+<guid>
+0000015155309d637089ea130021002100210001
+</guid>
+</tasks>
