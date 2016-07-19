@@ -2,7 +2,7 @@
 
 This repo will come to hold an experimental text editor, currently a work in progress.
 
-http://i.imgur.com/uNBo0CK.png
+![Snapshot of Development Version of Dagtext](http://i.imgur.com/uNBo0CK.png)
 
 
 ## ROADMAP
