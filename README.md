@@ -2,6 +2,9 @@
 
 This repo will come to hold an experimental text editor, currently a work in progress.
 
+http://i.imgur.com/uNBo0CK.png
+
+
 ## ROADMAP
 
 1. [x] Create the textnode base class, and the toplevel editor subroutine
