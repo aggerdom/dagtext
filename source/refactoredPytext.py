@@ -6,19 +6,20 @@ import networkx as nx
 from functools import partial
 from collections import namedtuple
 
-def intersects(a1,a2,b1,b2):
+
+def intersects(a1, a2, b1, b2):
     """
     Given x,y coordinates for four points defining two lines,
     returns false if lines don't intersect
     else returns thier intersection.
     # http://stackoverflow.com/questions/3746274/line-intersection-with-aabb-rectangle
     """
-    vector = namedtuple("vector",["X","Y"])
-    a1,a2,b1,b2 = vector(*a1),vector(*a2),vector(*b1),vector(*b2)
-    b = vector(a2.X-a1.X,
-               a2.Y-a1.Y)
-    d = vector(b2.X-b1.X,
-               b2.Y-b1.Y)
+    vector = namedtuple("vector", ["X", "Y"])
+    a1, a2, b1, b2 = vector(*a1), vector(*a2), vector(*b1), vector(*b2)
+    b = vector(a2.X - a1.X,
+               a2.Y - a1.Y)
+    d = vector(b2.X - b1.X,
+               b2.Y - b1.Y)
     bDotDPerp = b.X * d.Y - b.Y * d.X
 
     # if b dot d == 0, it means the lines are parallel
@@ -26,47 +27,49 @@ def intersects(a1,a2,b1,b2):
     if bDotDPerp == 0:
         return False
 
-    c = vector(b1.X-a1.X,
-               b1.Y-a1.Y)
-    t = (c.X * d.Y - c.Y * d.X)/bDotDPerp # float
+    c = vector(b1.X - a1.X,
+               b1.Y - a1.Y)
+    t = (c.X * d.Y - c.Y * d.X) / bDotDPerp  # float
 
-    if (t<0 or t>1):
+    if (t < 0 or t > 1):
         return False
 
-    u = (c.X * b.Y - c.Y * b.X)/bDotDPerp # float
-    if (u<0 or u>1):
+    u = (c.X * b.Y - c.Y * b.X) / bDotDPerp  # float
+    if (u < 0 or u > 1):
         return False
-    intersection = vector(a1.X + t*b.X,
-                          a1.Y + t*b.Y)
+    intersection = vector(a1.X + t * b.X,
+                          a1.Y + t * b.Y)
     return intersection
 
-def calculateRayRectangleIntersection(pointx,pointy,rectcenterx,rectcentery,rectwidth,rectheight):
+
+def calculateRayRectangleIntersection(pointx, pointy, rectcenterx, rectcentery, rectwidth, rectheight):
     """
           A ---------------- B
           |    rectcenter    |
           C ---------------- D
     """
-    minX = rectcenterx-.5*rectwidth
-    minY = rectcentery-.5*rectheight
-    maxX = rectcenterx+.5*rectwidth
-    maxY = rectcentery+.5*rectheight
+    minX = rectcenterx - .5 * rectwidth
+    minY = rectcentery - .5 * rectheight
+    maxX = rectcenterx + .5 * rectwidth
+    maxY = rectcentery + .5 * rectheight
 
-    A = minX,minY
-    B = maxX,minY
-    C = minX,maxY
-    D = maxX,maxY
+    A = minX, minY
+    B = maxX, minY
+    C = minX, maxY
+    D = maxX, maxY
 
-    intAB = intersects((pointx,pointy),(rectcenterx,rectcentery),A,B)
-    intAC = intersects((pointx,pointy),(rectcenterx,rectcentery),A,C)
-    intBD = intersects((pointx,pointy),(rectcenterx,rectcentery),B,D)
-    intCD = intersects((pointx,pointy),(rectcenterx,rectcentery),C,D)
-    for possibleIntersection in (intAB,intAC,intBD,intCD):
+    intAB = intersects((pointx, pointy), (rectcenterx, rectcentery), A, B)
+    intAC = intersects((pointx, pointy), (rectcenterx, rectcentery), A, C)
+    intBD = intersects((pointx, pointy), (rectcenterx, rectcentery), B, D)
+    intCD = intersects((pointx, pointy), (rectcenterx, rectcentery), C, D)
+    for possibleIntersection in (intAB, intAC, intBD, intCD):
         if possibleIntersection is not False:
             return possibleIntersection.X, possibleIntersection.Y
 
 
 def color_config(widget, color, event):
     widget.configure(foreground=color)
+
 
 class Node(object):
     G = nx.DiGraph()
@@ -97,26 +100,28 @@ class Node(object):
         self.handle = canvas.create_window(x, y, window=self.frame, *args, **kwargs)
 
         # Construct Frame Contents
-        self.toolbar = tk.LabelFrame(self.frame,relief=tk.RIDGE)
+        self.toolbar = tk.LabelFrame(self.frame, relief=tk.RIDGE)
         self.toolbar.pack(side='top')
-        self.dragHandle = tk.Label(self.toolbar,text="X",bg='grey')
+        self.dragHandle = tk.Label(self.toolbar, text="X", bg='grey')
         self.dragHandle.pack(side='left')
-        self.dragHandle.bind("<ButtonPress-1>",self.draghandle_on_button_down)
-        self.dragHandle.bind("<ButtonPress-3>",self.start_edge_creation)
-        self.dragHandle.bind("<ButtonRelease-3>",self.end_edge_creation)
+        self.dragHandle.bind("<ButtonPress-1>", self.draghandle_on_button_down)
+        self.dragHandle.bind("<ButtonPress-3>", self.start_edge_creation)
+        self.dragHandle.bind("<ButtonRelease-3>", self.end_edge_creation)
 
-        self.titleLabel = tk.Label(self.toolbar,text=self.title)
+        self.titleLabel = tk.Label(self.toolbar, text=self.title)
         self.titleLabel.pack(side="top")
-        self.titleLabel.bind("<Enter>",partial(color_config,self.titleLabel,"red"))
-        self.titleLabel.bind("<Leave>",partial(color_config,self.titleLabel,"blue"))
-        self.titleLabel.bind("<ButtonPress-1>",self.open_close_local_editor)
+        self.titleLabel.bind("<Enter>", partial(color_config, self.titleLabel, "red"))
+        self.titleLabel.bind("<Leave>", partial(color_config, self.titleLabel, "blue"))
+        self.titleLabel.bind("<ButtonPress-1>", self.open_close_local_editor)
 
-        self.externalEditButton = tk.Button(self.toolbar,text="[/Edit]")
+        self.externalEditButton = tk.Button(self.toolbar, text="[/Edit]")
 
         # register the node with the handle 2 node lookup
         Node.handleLookup[self.handle] = self
+
     def open_close_local_editor(self):
         pass
+
     # =================================================
     # Functions to propogate events to the underlying canvas widget
     # =================================================
@@ -124,21 +129,23 @@ class Node(object):
         self.frame.lift()
         for edge in self.outgoingEdgeHandles:
             self.canvas.lift(edge)
-    def start_edge_creation(self,event):
+
+    def start_edge_creation(self, event):
         # print("starting edge creation")
         self.canvas.dragEventStartNode = self
         self.canvas.event_generate("<<EdgeStartEvent>>")
-        self.dragHandle.bind("<B3-Motion>",self.during_edge_creation)
+        self.dragHandle.bind("<B3-Motion>", self.during_edge_creation)
 
-    def during_edge_creation(self,event):
+    def during_edge_creation(self, event):
         self.canvas.event_generate("<<B3-Motion>>")
 
-    def end_edge_creation(self,event):
+    def end_edge_creation(self, event):
         self.canvas.event_generate("<<EdgeRecieveEvent>>")
 
-    def send_VirtualEVENT(self,event):
+    def send_VirtualEVENT(self, event):
         self.canvas.currentStartNode = self.handle
         self.canvas.event_generate("<<VirtualEVENT>>")
+
     # def send_b3_motion(self,event):
     #     print("sending")
     #     curtags = self.canvas.gettags(self.handle)
@@ -151,27 +158,27 @@ class Node(object):
     # ==================================================
     # Dragging of canvas window
     # ==================================================
-    def draghandle_on_button_down(self,event):
-        self._drag_start_coords = event.x,event.y
+    def draghandle_on_button_down(self, event):
+        self._drag_start_coords = event.x, event.y
         self.update_Z_order()
-        self.dragHandle.bind("<B1-Motion>",self.draghandle_on_button_motion)
-        self.dragHandle.bind("<ButtonRelease-1>",self.draghandle_on_button_release)
+        self.dragHandle.bind("<B1-Motion>", self.draghandle_on_button_motion)
+        self.dragHandle.bind("<ButtonRelease-1>", self.draghandle_on_button_release)
 
-    def draghandle_on_button_motion(self,event):
+    def draghandle_on_button_motion(self, event):
         """Continuously adjust the node position on the canvas"""
-        curx,cury = self.canvas.coords(self.handle)
+        curx, cury = self.canvas.coords(self.handle)
         dx = event.x - self._drag_start_coords[0]
         dy = event.y - self._drag_start_coords[1]
-        newx,newy = curx+dx,cury+dy
+        newx, newy = curx + dx, cury + dy
         # update the position on the canvas
-        self.canvas.coords(self.handle,newx,newy)
+        self.canvas.coords(self.handle, newx, newy)
         # update node coordinates
         self.x = newx
         self.y = newy
         # self.canvas.update_edges()
         # self.canvas.update_edges()
 
-    def draghandle_on_button_release(self,event):
+    def draghandle_on_button_release(self, event):
         """Clean up after drag event"""
         self.dragHandle.unbind("<B1-Motion>")
 
@@ -250,7 +257,6 @@ class Node(object):
 
         # update the edge handles
         canvas.update_edges()
-
 
     # ==================================================
     # Functions for tkinter
@@ -338,25 +344,25 @@ class MainCanvas(tk.Canvas):
         self.bind("<ButtonPress-2>", self.edit_node)
         self.bind("<B3-Motion>", self.b3motion)
         self.bind("<ButtonRelease-3>", self.b3release)
-        self.bind("<<EdgeStartEvent>>",self.handle_edge_start)
-        self.bind("<<EdgeRecieveEvent>>",self.handle_edge_release)
+        self.bind("<<EdgeStartEvent>>", self.handle_edge_start)
+        self.bind("<<EdgeRecieveEvent>>", self.handle_edge_release)
 
-    def handle_edge_start(self,event):
+    def handle_edge_start(self, event):
         self.currentArrow = self.create_line(self.dragEventStartNode.x,
                                              self.dragEventStartNode.y,
                                              self.dragEventStartNode.x,
                                              self.dragEventStartNode.y)
 
-    def handle_edge_release(self,event):
+    def handle_edge_release(self, event):
         if self.dragEventStartNode is not None:
-            x,y = self.winfo_pointerxy()
+            x, y = self.winfo_pointerxy()
             x = self.canvasx(x)
             y = self.canvasy(y)
-            item = self.find_closest(x,y)
+            item = self.find_closest(x, y)
             if "node" in self.gettags(item):
                 self.dragEventEndNode = Node.handleLookup[item[0]]
             if self.dragEventEndNode is not None:
-                self.link_nodes(self.dragEventStartNode,self.dragEventEndNode)
+                self.link_nodes(self.dragEventStartNode, self.dragEventEndNode)
                 # add update the Graph in the model to add the edge
                 self.dragEventStartNode.add_outgoing_edge(self.dragEventEndNode)
         # cleanup
@@ -364,7 +370,7 @@ class MainCanvas(tk.Canvas):
         self.dragEventStartNode = None
         self.dragEventEndNode = None
 
-    def testvevent(self,event):
+    def testvevent(self, event):
         print("IN TESTVEVENT")
 
     def b3motion(self, event):
@@ -426,8 +432,9 @@ class MainCanvas(tk.Canvas):
             nodeheight = node2.frame.winfo_reqheight()
             # print(nodewidth,nodeheight)
             try:
-                endx,endy = calculateRayRectangleIntersection(node1.x,node1.y,node2.x,node2.y,nodewidth,nodeheight)
-                self.coords(edgehandle, node1.x, node1.y, endx,endy)
+                endx, endy = calculateRayRectangleIntersection(node1.x, node1.y, node2.x, node2.y, nodewidth,
+                                                               nodeheight)
+                self.coords(edgehandle, node1.x, node1.y, endx, endy)
             except TypeError:
                 pass
 
