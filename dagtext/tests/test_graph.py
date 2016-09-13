@@ -3,65 +3,55 @@ from mock import MagicMock
 from dagtext import graphModel
 
 
-# def test_graph_instantiation():
-#     graph = graphModel.DocumentGraph()
-#     assert hasattr(graph,"G")
-#     assert isinstance(graph.G, graphModel.nx.DiGraph)
-#
-# def test_node_instantiation():
-#     graph = graphModel.DocumentGraph()
-#     node = graphModel.Node(0,text="",title="<Node 0>")
-
-# def test_instantiate():
-#     graph = graphModel.DocumentGraph()
-#     assert graph.uidcounter == 0
-#     assert len(graph.uidLookup)==0
-#     node = graph.add_node(text="node1", title=None, nodeid=None)
-#
-#     # check it's added to lookup
-#     assert node.uid in graph.uidLookup
-#     assert node.title is not None
-
-class TestModelNode:
-    def test_split(self):
-        n1 = graphModel.ModelNode(uid=graphModel.uuid.uuid4(),
-                                  title="Foo",
-                                  text="Hello world")
-        assert hasattr(n1, "uid") and hasattr(n1, "title") and hasattr(n1, "text")
-        assert "Hello world" == n1.text
-
-        n1a, n1b = n1.split(5)
-        assert n1a.text == "Hello"
-        assert n1b.text == " world"
-
-    def test_cat(self):
-        n1 = graphModel.ModelNode(uid=graphModel.uuid.uuid4(),
-                                  title="Foo",
-                                  text="Hello world")
-        assert n1.cat("!") == "Hello world!"
-        print("{!r}".format(n1.cat(n1)))
-        assert n1.cat(n1) == "Hello worldHello world"
-
-    def test_join(self):
-        n1 = graphModel.ModelNode(uid=graphModel.uuid.uuid4(),
-                                  title="Foo",
-                                  text="Hello world")
-        raise NotImplementedError
+def test_graph_instantiation():
+    graph = graphModel.DocumentGraph()
+    assert hasattr(graph, "G")
+    assert isinstance(graph.G, graphModel.nx.DiGraph)
 
 
-class TestDocumentGraph:
-    def test_add_node(self):
-        pass
+def test_node_instantiation():
+    graph = graphModel.DocumentGraph()
+    node = graph.add_node(text="", title="<Node 0>")
+    assert node == 0
 
-    def test_split_node(self):
-        pass
-        # test that the
 
-    def test_join_node(self):
-        pass
+def test_split_default():
+    doc = graphModel.DocumentGraph()
+    node0 = doc.add_node(title="FirstNode", text="second node")
+    assert node0 in doc.G.node
 
-    def test_is_dag(self):
-        pass
+    # split the node
+    node1, node2 = doc.split_node(node0, 1)
 
-    def test_dump(self):
-        pass
+    # test for remove and node addition
+    assert node0 not in doc.G.node
+    assert len(doc.G.node) == 2
+    assert node1 in doc.G.node
+    assert node2 in doc.G.node
+
+    # test node attributes
+    title1, title2 = doc.G.node[node1]['title'], doc.G.node[node2]['title']
+    assert (title1 == doc[node1].title) and (title2 == doc[node2].title)
+
+    # test for creation of an edge from the head to the tail
+    # (The default)
+    assert (node1, node2) in doc.G.out_edges(node1)
+    assert (node1, node2) in doc.G.in_edges(node2)
+    return doc.G.node
+
+
+class TestGraphModelGetter:
+    def test_node_getter(self):
+        g = graphModel.DocumentGraph()
+        n0 = g.add_node(title="Foo", text="Hello world")
+        n1 = g.add_node(title="Bar", text="from Alex")
+        g.add_edge(n0, n1)
+        edge = g[(n0, n1)]
+        assert edge.head == n0 and edge.tail == n1
+
+    def test_edge_getter(self):
+        g = graphModel.DocumentGraph()
+        n1 = g.add_node(title="Foo", text="Hello world")
+        assert g[n1].title == 'Foo'
+        assert g[n1].text + "!" == "Hello world!"
+        assert g[n1].text + g[n1].text == "Hello worldHello world"

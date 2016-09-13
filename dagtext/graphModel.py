@@ -2,11 +2,15 @@
 import itertools
 
 import networkx as nx
+from pprint import pformat
+from collections import namedtuple
+from operator import itemgetter
 
-NODECOUNT = itertools.count()
 # TODO: move to config
 DOCGRAPHSAVELOC = "C:/users/alex/.dagtext/lastopen.yml"
-
+NODECOUNT = itertools.count()
+Node = namedtuple("Node", ["nodeid", "title", "text"])
+Edge = namedtuple("Edge", ["head", "tail", "attribs"])  # additional attributes will be attribute, value pairs
 
 class DocumentGraph(object):
     """Graph that manages nodes and edges"""
@@ -16,6 +20,44 @@ class DocumentGraph(object):
         if graph is None:
             graph = nx.DiGraph()
         self.G = graph
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            nodeid = key
+            nodeattribs = self.G.node[nodeid]
+            try:
+                return Node(nodeid=nodeid, **nodeattribs)
+            except AttributeError:
+                missing_attribs = [str(k) for k in nodeattribs if k not in Node._fields]
+                return NotImplementedError("Node namedtuple does not have fields:",
+                                           "".join("{},".format(f) for f in missing_attribs))
+        elif isinstance(key, tuple):
+            head, tail = key
+            returned_edges = []
+            # TODO: does this need a copy operation?
+            for edge in self.G.edges(head):
+                edgeattribs = self.G.edge[head][tail]
+                attribs = tuple((k, v) for k, v in edgeattribs.items())
+                return Edge(head=head, tail=tail, attribs=attribs)
+        else:
+            raise KeyError("DocumentGraph Instance Only Accepts nodeids (ints) and edgeids (slices) as keys")
+
+    def __setitem__(self, nodeid, valuedict):
+        # TODO: Implement setitem
+        raise NotImplementedError
+
+    def __repr__(self):
+        # TODO: FINISH REPR
+        raise NotImplementedError
+        head = ["DocumentGraph(\n"]
+        for nodeid, attributes in self.G.node.items():
+            f = ["\tNode: " + str(nodeid)]
+            for edge in self.G.edges_iter(nodeid):
+                pass
+
+        tail = []
+
+        pformat(self.G.node)
 
     ## Methods to persist graph
     @classmethod
@@ -28,10 +70,12 @@ class DocumentGraph(object):
         :return: Loaded document graph
         :rtype: DocumentGraph
         """
+        # Todo: tests to check loading of yaml graphs
         G = nx.read_yaml(ymlfilepath)
         return DocumentGraph(graph=G)
 
     def dump_to_yaml(self, filepath=DOCGRAPHSAVELOC):
+        # Todo: tests to saving of yaml graphs
         nx.write_yaml(self.G, filepath)
 
     ## Node management methods
@@ -60,14 +104,8 @@ class DocumentGraph(object):
         """
         Create an directed edge from node1 to node2.
         """
+        # TODO: Potential signal point (edge instantiation on nx graph)
         self.G.add_edge(node1, node2)
-
-    def get_node(self, nodeid):
-        pass
-
-    def get_edges(self, nodeid):
-        return {"in" : self.G.in_edges(nodeid),
-                "out": self.G.out_edges(nodeid)}
 
     ## Graph Rewriting/Manipulation Methods
     def split_node(self, nodeid, location,
@@ -174,23 +212,3 @@ class DocumentGraph(object):
             raise NotImplementedError
         return pos
 
-
-def test_split():
-    doc = DocumentGraph()
-    node1 = doc.add_node(title="FirstNode", text="second node")
-    assert node1 in doc.G.node
-    # split the node
-    node2, node3 = doc.split_node(node1, 1)
-    # test for remove and node addition
-    assert node1 not in doc.G.node
-    assert len(doc.G.node) == 2
-    assert node2 in doc.G.node
-    assert node3 in doc.G.node
-    # test for creation of an edge from the head to the tail
-    assert (node2, node3) in doc.G.out_edges(node2)
-    assert (node2, node3) in doc.G.in_edges(node3)
-
-    return doc.G.node
-
-if __name__ == "__main__":
-    test_split()
