@@ -48,12 +48,12 @@ class TestModelNode:
                                   text="Hello world")
         raise NotImplementedError
 
+
 class TestDocumentGraph:
     def test_add_node(self):
         pass
 
     def test_split_node(self):
-
         pass
         # test that the
 
