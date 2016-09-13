@@ -4,7 +4,6 @@ import networkx as nx
 import tkinter as tk
 # import matplotlib.pyplot as plt
 
-
 class TextNode(object):
     """Base class for text node"""
 

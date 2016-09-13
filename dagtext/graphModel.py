@@ -1,79 +1,11 @@
 # from dagtext.signals import *
-from signals import *
-import networkx as nx
-import uuid
-import yaml
 import itertools
-from collections import namedtuple
 
+import networkx as nx
 
-def listener(source, **kws):
-    print("(listener) recieved from", source, ",", kws)
-
-
-for s in SIGNALS:
-    SIGNALS[s].connect(listener)
-
-
-class ModelNode(namedtuple("ModelNode", ["uid", "title", "text"])):
-    """
-    Class that contains that basic information for a node in a document.
-
-    <node>.uid = A unique identifier that specifies the identity of the node
-        typically will be assigned using uuid.uuid4.
-    <node>.title = A name for the node, typically used in its handle on the
-        graph in the gui.
-    <node>.text = The contents of a node
-    """
-    __slots__ = ()
-
-    def __str__(self):
-        return self.text
-
-    def split(self, index):
-        """
-        Creates two new nodes consisting of self.text split at a given index.
-
-        SIGNALS:
-            SIGNAME: signals.SIGNALS["nodeSplit"]
-            SIGSOURCE: <node being split>
-            SIGDATA: created=(headnode, tailnode)
-
-        :param index:
-        :type index: int
-        :return: headnode, tailnode
-        :rtype: tuple
-        """
-
-        # create two new nodes from the contents
-        head, tail = self.text[:index], self.text[index:]
-        node1 = ModelNode(uid=uuid.uuid4(),
-                          title=self.title + " (1)",
-                          text=head)
-        node2 = ModelNode(uid=uuid.uuid4(),
-                          title=self.title + " (2)",
-                          text=tail)
-
-        # notify the rest of the application of the node splitting
-        splitsignal = SIGNALS["nodeSplit"]
-        splitsignal.send(self, created=(node1, node2))
-
-        return node1, node2
-
-    def cat(self, other):
-        """
-        self.text + <somestring>
-
-        If other is a string, returns self.text+other
-        If other is a node, returns self.text+other.text
-        """
-        if isinstance(other, ModelNode):
-            return self.text + other.text
-        elif isinstance(other, str):
-            return self.text + other
-
-    def __repr__(self):
-        return "Node(uid:{},title:{},text:{})".format(self.uid, self.title, self.text)
+NODECOUNT = itertools.count()
+# TODO: move to config
+DOCGRAPHSAVELOC = "C:/users/alex/.dagtext/lastopen.yml"
 
 
 class DocumentGraph(object):
@@ -82,12 +14,10 @@ class DocumentGraph(object):
     def __init__(self, graph=None):
         super(DocumentGraph, self).__init__()
         if graph is None:
-            self.G = nx.DiGraph()
-            self.uidLookup = {}
-        else:
-            self.G = graph
-            self.uidLookup = {node.uid: node for node in self.G.node.keys()}
+            graph = nx.DiGraph()
+        self.G = graph
 
+    ## Methods to persist graph
     @classmethod
     def from_yaml(cls, ymlfilepath):
         """
@@ -101,6 +31,10 @@ class DocumentGraph(object):
         G = nx.read_yaml(ymlfilepath)
         return DocumentGraph(graph=G)
 
+    def dump_to_yaml(self, filepath=DOCGRAPHSAVELOC):
+        nx.write_yaml(self.G, filepath)
+
+    ## Node management methods
     def add_node(self, text="", title=None):
         """
         Creates a new node in the graph instance with the specified paramaters, and adds it to the graph instances
@@ -110,16 +44,17 @@ class DocumentGraph(object):
         :type text: str
         :param title: Title of the node that will display on the canvas
         :type title: str
-        :return: The newly created node
-        :rtype: Node
+        :return: The ID of the newly created node
+        :rtype: int
         """
-        nodeid = uuid.uuid4()
+        # nodeid = uuid.uuid4()
+        nodeid = next(NODECOUNT)
         if title is None:
             title = "<Node {}>".format(nodeid)
 
-        node = ModelNode(nodeid, text=text, title=title)
-        self.uidLookup[nodeid] = node
-        return node
+        nodeattrs = dict(text=text, title=title)
+        self.G.add_node(nodeid, nodeattrs)
+        return nodeid
 
     def add_edge(self, node1, node2):
         """
@@ -127,7 +62,15 @@ class DocumentGraph(object):
         """
         self.G.add_edge(node1, node2)
 
-    def split_node(self, node, location,
+    def get_node(self, nodeid):
+        pass
+
+    def get_edges(self, nodeid):
+        return {"in" : self.G.in_edges(nodeid),
+                "out": self.G.out_edges(nodeid)}
+
+    ## Graph Rewriting/Manipulation Methods
+    def split_node(self, nodeid, location,
                    in2head=True, in2tail=False,
                    head2tail=True, head2out=False,
                    tail2out=True, in2out=False):
@@ -149,7 +92,7 @@ class DocumentGraph(object):
                      "in"                  node (arg[1])               "out"
 
         ARGS:
-            node (ModelNode): Node to be split
+            nodeid (int): Node to be split
             location (int): Index in the node's text to split the node
 
         KWARGS:
@@ -161,10 +104,22 @@ class DocumentGraph(object):
             tail2out (bool): If True nodes w/ edges to the original node will point to the second part of the split
             in2out (bool): If True nodes w/ edges to the original node will point to all nodes w/ edges from the
                              original node
+
+        RETURNS:
+            (head,tail)
         """
-        head, tail = node.split(location)
-        incoming = [edge[0] for edge in self.G.in_edges(node)]
-        outgoing = [edge[1] for edge in self.G.out_edges(node)]
+
+        text = self.G.node[nodeid]["text"]
+        title = self.G.node[nodeid]["title"]
+        texthead, texttail = text[:location], text[location:]
+
+        # create two new nodes from the contents
+        head = self.add_node(text=texthead, title=title + " (1)")
+        tail = self.add_node(text=texttail, title=title + " (2)")
+
+        # link them up
+        incoming = [edge[0] for edge in self.G.in_edges(nodeid)]
+        outgoing = [edge[1] for edge in self.G.out_edges(nodeid)]
         if in2head:
             for upnode in incoming:
                 self.add_edge(upnode, head)
@@ -184,14 +139,13 @@ class DocumentGraph(object):
                 for downnode in outgoing:
                     self.add_edge(upnode, downnode)
 
-    def join_nodes(self, node1, node2):
-        raise NotImplementedError
+        # remove the original node
+        self.G.remove_node(nodeid)
+        return head, tail
 
-    def dump_to_yaml(self, Gfilepath, Sfilepath):
-        # dump the graph to yaml
-        nx.write_yaml(self.G, Gfilepath)
-        # dump the UID2Node lookup
-        yaml.dump(self.uidLookup, open(Sfilepath))
+    def join_nodes(self, node1, node2):
+        # newtitle = "[{} + {}]".format(node)
+        raise NotImplementedError
 
     def is_dag(self):
         return nx.is_directed_acyclic_graph(self.G)
@@ -221,8 +175,22 @@ class DocumentGraph(object):
         return pos
 
 
+def test_split():
+    doc = DocumentGraph()
+    node1 = doc.add_node(title="FirstNode", text="second node")
+    assert node1 in doc.G.node
+    # split the node
+    node2, node3 = doc.split_node(node1, 1)
+    # test for remove and node addition
+    assert node1 not in doc.G.node
+    assert len(doc.G.node) == 2
+    assert node2 in doc.G.node
+    assert node3 in doc.G.node
+    # test for creation of an edge from the head to the tail
+    assert (node2, node3) in doc.G.out_edges(node2)
+    assert (node2, node3) in doc.G.in_edges(node3)
+
+    return doc.G.node
+
 if __name__ == "__main__":
-    n1 = ModelNode(uid=uuid.uuid4(),
-                   title="Foo",
-                   text="Hello world")
-    n1a, n1b = n1.split(5)
+    test_split()
