@@ -4,7 +4,50 @@ import itertools
 import networkx as nx
 from pprint import pformat
 from collections import namedtuple
-from operator import itemgetter
+
+"""
+FILE: graphModel.py
+AUTHOR: Alex Gerdom
+github username: aggerdom
+
+Description:
+    Contains classes and helper functions that implement the logic for the underlying
+    datamodel, and provide convenient access in such a way that we don't let the
+    networkx.DiGraph instances get out of sync.
+
+Major Classes:
+    DocumentGraph:
+        Handles interactions with the nx.DiGraph instance
+    Node:
+        Object (currently namedtuple) that holds node data and provides it through named attributes.
+        May later serve as an interface for the DocumentGraph's node handling functions.
+    Edge:
+        Object (currently namedtuple) that holds node data.
+        May later serve as an interface for the DocumentGraph's edge handling functions.
+
+## IMPLEMENTATION NOTES
+
+
+
+### Handling of nodeids
+
+In order to ensure that the nodes are being created in a way that we can keep track
+of them across different graph instances (perhaps in the case that I decide
+to implement subgraphs in the future). Nodes are uniquely identified, by a variable
+in graphModel.NODECOUNT that is an instance of itertools.count. The ids will increment
+any time a new node is added to the DocumentGraph instance.
+
+:WARNING:
+    IF IMPORTING AN EXISTING GRAPH:
+        1. All Node ids (and edges) in the new graph should be incremented by next(NODECOUNT)+1
+            - When this happens, an appropriate signal from dagtext.signals.py should be called
+        2. THIS COUNTER MUST BE INCREMENTED TO THE HIGHEST NODEID + 1
+    - Do not try and use nodeids created by this module in a later session
+    - The amount this counter increments by can vary by operation w/ some
+      incrementing more than 1 if they have intermediate operations on the underlying
+      graph. However it should only increase, even with undo operations.
+
+"""
 
 # TODO: move to config
 DOCGRAPHSAVELOC = "C:/users/alex/.dagtext/lastopen.yml"
@@ -12,13 +55,41 @@ NODECOUNT = itertools.count()
 Node = namedtuple("Node", ["nodeid", "title", "text"])
 Edge = namedtuple("Edge", ["head", "tail", "attribs"])  # additional attributes will be attribute, value pairs
 
+
+def update_nodecount(new_point):
+    assert isinstance(new_point, int)
+    global NODECOUNT
+    NODECOUNT = itertools.count(start=new_point)
+
+
 class DocumentGraph(object):
-    """Graph that manages nodes and edges"""
+    """Graph representing document and managing access to the underlying networkx graph.
+
+    :EXAMPLE:
+        >>> doc = DocumentGraph()
+        >>> node1 = doc.add_node(title="Node 0", text="I'm the first node!")
+        >>> print(node1)
+        0
+        >>> node1head, node1tail = doc.split_node(node1, 7)
+        >>> [node in doc.nodes for node in (node1,node1head,node1tail)]
+        [False, True, True]
+        >>> print(node1head,',',node1tail)
+        1 , 2
+        >>> doc[node1head].text, doc[node1tail].text
+        ("I'm the", ' first node!')
+        >>> doc.is_dag()
+        True
+    """
 
     def __init__(self, graph=None):
         super(DocumentGraph, self).__init__()
         if graph is None:
             graph = nx.DiGraph()
+        else:
+            raise NotImplementedError  # Todo: remove after testing
+            graph = graph
+            highest_id = max(graph.node)
+            update_nodecount(highest_id + 1)
         self.G = graph
 
     @property
@@ -44,9 +115,8 @@ class DocumentGraph(object):
             try:
                 return Node(nodeid=nodeid, **nodeattribs)
             except AttributeError:
-                missing_attribs = [str(k) for k in nodeattribs if k not in Node._fields]
-                return NotImplementedError("Node namedtuple does not have fields:",
-                                           "".join("{},".format(f) for f in missing_attribs))
+                missing_attribs = ["{}, ".format(k) for k in nodeattribs if k not in Node._fields]
+                raise NotImplementedError("Node namedtuple does not have fields:" + "".join(missing_attribs))
         elif isinstance(key, tuple):
             head, tail = key
             returned_edges = []
@@ -67,7 +137,7 @@ class DocumentGraph(object):
         edges = self.edges
         for nodeid in self.nodes:
             out.append("\t{!r}".format(self[nodeid]))
-            for edge in filter(lambda x: x[0]==nodeid, edges):
+            for edge in filter(lambda x: x[0] == nodeid, edges):
                 out.append("\t\t{!r}".format(self[edge]))
         out[-1] += ")"
         return "\n".join(out)
@@ -108,20 +178,35 @@ class DocumentGraph(object):
         nodeid = next(NODECOUNT)
         if title is None:
             title = "<Node {}>".format(nodeid)
-        nodeattrs = dict(text=text, title=title)
+        nodeattrs = dict(text=str(text), title=str(title))
         self.G.add_node(nodeid, nodeattrs)
         return nodeid
 
-    def add_edge(self, node1, node2):
+    def remove_node(self, nodeid):
+        # Get which edges were linked to it so we can signal thier removal
+        edges = list(filter(lambda edge: nodeid in edge,
+                            self.G.edges()))
+        self.G.remove_node(nodeid)
+        # TODO: Signal the edges were removed
+        # TODO: Signal the node was removed
+
+    def add_edge(self, node1: int, node2: int):
         """
         Create an directed edge from node1 to node2.
         """
+        # TODO: allow an attribute dict to be passed?
         # check that the node ids are valid for edge creation
-        assert isinstance(node1,int) and isinstance(node2,int)
-        assert(node1 in self.nodes, "Node {} is not in the graph".format(node1))
-        assert(node2 in self.nodes, "Node {} is not in the graph".format(node2))
-        # TODO: Potential signal point (edge instantiation on nx graph)
-        self.G.add_edge(node1, node2)
+        if not all(isinstance(node, int) for node in (node1, node2)):
+            raise ValueError("add_edge only accepts integer nodeid's")
+        if all(n in self.nodes for n in (node1, node2)):
+            self.G.add_edge(node1, node2)
+            # TODO: Potential signal point (edge instantiation on nx graph)
+        else:
+            raise ValueError(
+                "One of ({},{}) is not in graph:\n{!r}".format(node1, node2, self))
+
+    def remove_edge(self, head, tail):
+        raise NotImplementedError
 
     ## Graph Rewriting/Manipulation Methods
     def split_node(self, nodeid, location,
