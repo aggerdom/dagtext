@@ -16,6 +16,7 @@ save = signal("save")
 # Alterations on the graph
 nodeCreated = signal("nodeCreated")
 nodeRemoved = signal("nodeDestroyed")
+nodeAttrChange = signal("nodeAttrChange")
 nodeSplit = signal("nodeSplit")
 nodeJoin = signal("nodeJoin")
 edgeCreated = signal("edgeRemoved")

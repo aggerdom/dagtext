@@ -4,6 +4,7 @@ import itertools
 import networkx as nx
 from pprint import pformat
 from collections import namedtuple
+import signals
 
 """
 FILE: graphModel.py
@@ -52,7 +53,31 @@ any time a new node is added to the DocumentGraph instance.
 # TODO: move to config
 DOCGRAPHSAVELOC = "C:/users/alex/.dagtext/lastopen.yml"
 NODECOUNT = itertools.count()
-Node = namedtuple("Node", ["nodeid", "title", "text"])
+
+
+class Node(object):
+    def __init__(self, nodeid, title, text):
+        self.nodeid = nodeid
+        self.title = title
+        self.text = text
+
+    def __str__(self):
+        f = ("Node(nodeid={},title={},text={})").format(self.nodeid,
+                                                        self.title,
+                                                        self.text)
+        return f
+
+    def __eq__(self, other):
+        try:
+            if (self.title == other.title and
+                        self.text == other.text and
+                        self.nodeid == other.nodeid):
+                return True
+        except AttributeError:
+            pass
+        return False
+
+
 Edge = namedtuple("Edge", ["head", "tail", "attribs"])  # additional attributes will be attribute, value pairs
 
 
@@ -80,6 +105,14 @@ class DocumentGraph(object):
         >>> doc.is_dag()
         True
     """
+    sig_node_created = signals.nodeCreated
+    sig_node_removed = signals.nodeRemoved
+    sig_node_attr_change = signals.nodeAttrChange
+    sig_node_split = signals.nodeSplit
+    sig_node_join = signals.nodeJoin
+    sig_edge_created = signals.edgeCreated
+    sig_edge_removed = signals.edgeRemoved
+    sig_edge_attr_change = signals.edgeAttrChange
 
     def __init__(self, graph=None):
         super(DocumentGraph, self).__init__()
@@ -178,17 +211,42 @@ class DocumentGraph(object):
         nodeid = next(NODECOUNT)
         if title is None:
             title = "<Node {}>".format(nodeid)
-        nodeattrs = dict(text=str(text), title=str(title))
+        nodeattrs = {'text': str(text), 'title': str(title)}
         self.G.add_node(nodeid, nodeattrs)
+        self.sig_node_created.send(self, nodeid=nodeid)
         return nodeid
 
-    def remove_node(self, nodeid):
-        # Get which edges were linked to it so we can signal thier removal
-        edges = list(filter(lambda edge: nodeid in edge,
-                            self.G.edges()))
-        self.G.remove_node(nodeid)
-        # TODO: Signal the edges were removed
-        # TODO: Signal the node was removed
+    def remove_node(self, nodeid: int):
+        """
+        Remove a node specified by `nodeid` from the graph.
+
+        SIGNALS
+            self.sig_node_removed.send(<docgraph>,
+                                       nodeid=nodeid,
+                                       nodetitle=<nodetitle>,
+                                       nodetext=<nodetext>)
+            self.sig_edge_removed(<docgraph>,
+                                  id_tuple=(<head_node_id>,<tail_node_id>))
+        RAISES
+            KeyError: If the node is not in the graph
+        """
+        try:
+            # Get information to broadcast about the node and edges being removed
+            removed_edges = list(filter(lambda edge_ids: nodeid in edge_ids,
+                                        self.G.edges()))
+            tmpnode = self[nodeid]
+            # Signal the node and edges were removed
+            self.sig_node_removed.send(self,
+                                       nodeid=nodeid,
+                                       nodetitle=tmpnode.title,
+                                       nodetext=tmpnode.text)
+            for edge in removed_edges:
+                self.sig_edge_removed.send(self, id_tuple=edge)
+
+            # Do the removal
+            self.G.remove_node(nodeid)
+        except nx.NetworkXError:
+            raise KeyError("Node %d is not in the graph" % nodeid)
 
     def add_edge(self, node1: int, node2: int):
         """
@@ -198,7 +256,10 @@ class DocumentGraph(object):
         # check that the node ids are valid for edge creation
         if not all(isinstance(node, int) for node in (node1, node2)):
             raise ValueError("add_edge only accepts integer nodeid's")
-        if all(n in self.nodes for n in (node1, node2)):
+
+        # create the edge iff the nodeid's passed are currently in the graph
+        nodes_on_g = self.nodes
+        if all(n in nodes_on_g for n in (node1, node2)):
             self.G.add_edge(node1, node2)
             # TODO: Potential signal point (edge instantiation on nx graph)
         else:
@@ -206,6 +267,20 @@ class DocumentGraph(object):
                 "One of ({},{}) is not in graph:\n{!r}".format(node1, node2, self))
 
     def remove_edge(self, head, tail):
+        raise NotImplementedError
+
+    ## Checks
+    def has_node(self, nodeid):
+        return nodeid in self.nodes
+
+    def has_nodes(self, *nodeids):
+        nodes = self.nodes
+        return all(n in nodes for n in nodeids)
+
+    def has_edge(self, head, tail):
+        return self.G.has_edge(head, tail)
+
+    def has_edges(self, *edges):
         raise NotImplementedError
 
     ## Graph Rewriting/Manipulation Methods
@@ -279,17 +354,38 @@ class DocumentGraph(object):
                     self.add_edge(upnode, downnode)
 
         # remove the original node
-        self.G.remove_node(nodeid)
+        self.remove_node(nodeid)
         return head, tail
 
-    def join_nodes(self, node1, node2):
-        # newtitle = "[{} + {}]".format(node)
+    def join_nodes(self, head_node_id: int, tail_node_id: int,
+                   titlesep=' + ', textsep='\n') -> int:
+        """
+        Join two nodes, and return new nodeid
+
+        :param node1: id (int) of head
+        :type node1:
+        :param node2:
+        :type node2:
+        :return: created_node_id
+        :rtype: int
+        """
         raise NotImplementedError
+        # newtitle = "[{} + {}]".format(node)
+        head = self[head_node_id]
+        tail = self[tail_node_id]
+        # check: head -> tail
+
+        # get: Node -> head
+        # get: tail -> Node
+        id_created = self.add_node(
+            title=head.title + titlesep + tail.title,
+            text=head.text + textsep + tail.text
+        )
 
     def is_dag(self):
         return nx.is_directed_acyclic_graph(self.G)
 
-    def layout(self, canvas_width, canvas_height, layoutMethod="spring"):
+    def layout(self, canvas_width, canvas_height, layout_method="spring"):
         # calculate new node positions
         width = canvas_width
         height = canvas_height
@@ -297,18 +393,45 @@ class DocumentGraph(object):
         # center of canvas
         canvas_center = (int(.5 * width), int(.5 * height))
         minreq = min(width, height)
-        if layoutMethod == "circular":
-            pos = nx.circular_layout(
-                self.G, scale=.45 * minreq, center=canvas_center)
-        elif layoutMethod == "spring":
-            pos = nx.spring_layout(
-                self.G, scale=.4 * minreq, center=canvas_center)
-        elif layoutMethod == "shell":
-            pos = nx.shell_layout(
-                self.G, scale=.4 * minreq, center=canvas_center)
-        elif layoutMethod == 'spectral':
-            pos = nx.spectral_layout(
-                self.G, scale=.4 * minreq, center=canvas_center)
+        if layout_method == "circular":
+            # TODO: add shells argument
+            pos = nx.circular_layout(self.G, scale=.45 * minreq, center=canvas_center)
+        elif layout_method == "spring":
+            pos = nx.spring_layout(self.G, scale=.4 * minreq, center=canvas_center)
+        elif layout_method == "shell":
+            pos = nx.shell_layout(self.G, scale=.4 * minreq, center=canvas_center)
+        elif layout_method == 'spectral':
+            pos = nx.spectral_layout(self.G, scale=.4 * minreq, center=canvas_center)
+        elif layout_method == 'dot':
+            # For docs and summaries here: http://www.graphviz.org/doc/libguide/libguide.pdf
+            pos = nx.drawing.nx_pydot.pydot_layout(self.G, prog='dot', root=None)
+        elif layout_method == 'neato':
+            # "symmetric"? Used with undirected graphs?
+            nx.drawing.nx_pydot.pydot_layout(self.G, prog='neato', root=None)
+        elif layout_method == 'circo':
+            # circular layout
+            pos = nx.drawing.nx_pydot.pydot_layout(self.G, prog="circo")
+        elif layout_method == 'twopi':
+            # radial layout
+            pos = nx.drawing.nx_pydot.pydot_layout(self.G, prog="twopi")
+        elif layout_method == 'fdp':
+            # for directed push, similar to neato
+            pos = nx.drawing.nx_pydot.pydot_layout(self.G, prog="fdp")
+        # elif layout_method == 'nop':
+        #     pos = nx.drawing.nx_pydot.pydot_layout(self.G, prog="nop")
+        # elif layout_method == 'nop1':
+        #     pos = nx.drawing.nx_pydot.pydot_layout(self.G, prog="nop1")
+        # elif layout_method == 'nop2':
+        #     pos = nx.drawing.nx_pydot.pydot_layout(self.G, prog="nop2")
+        elif layout_method == 'osage':
+            # need's patching on pydotplus
+            # clustered graphs based on user specs
+            pos = nx.drawing.nx_pydot.pydot_layout(self.G, prog="osage")
+        elif layout_method == 'patchwork':
+            # may use this later (used for a treemap view)
+            pos = nx.drawing.nx_pydot.pydot_layout(self.G, prog="patchwork")
+        elif layout_method == 'sfdp':
+            pos = nx.drawing.nx_pydot.pydot_layout(self.G, prog="sfdp")
         else:
             raise NotImplementedError
         return pos

@@ -1,6 +1,6 @@
 import pytest
 from mock import MagicMock
-from dagtext import graphModel
+from dagtext import graphModel, signal_tester
 
 
 def create_graph(elements, patch_lookup=False):
@@ -205,11 +205,31 @@ class TestGraph:
     # test methods
     def test_add_node(self, reset_nodecount):
         doc = graphModel.DocumentGraph()
+        sig_created = doc.sig_node_created
+        sig_removed = doc.sig_node_removed
+        recording = signal_tester.SignalRecording(signals=(sig_created, sig_removed))
+
+        # create a node
         node1 = doc.add_node(title="Node 0", text="I'm the first node!")
         assert node1 == 0
+
+        # split that node
         node1head, node1tail = doc.split_node(node1, 7)
         assert [(node in doc.nodes) for node in (node1, node1head, node1tail)] == [False, True, True]
 
+        # Check that things proceeded in the expected way
+        signal_sequence = [item[0] for item in recording]
+        from pprint import pprint
+        pprint(signal_sequence)
+        assert signal_sequence == [sig_created,  # node1
+                                   sig_created,  # node1head
+                                   sig_created,  # node1tail
+                                   sig_removed]  # rem node 1
+
+        sig, source, nodeid = recording[-1]['nodeid']
+        assert recording[-1][-1]['nodeid'] == ''
+
+        # Check that it munges arguments for title and text to strings
         node2 = doc.add_node(title="Node 1", text=0)
         assert doc[node2].text == '0'
 
@@ -218,7 +238,7 @@ class TestGraph:
         doc.remove_node(0)
         assert 0 not in doc.nodes
         with pytest.raises(KeyError):
-            doc.remove_node(0)  # just let the error propogate from nx
+            doc.remove_node(0)  # catch networkX error and return a key error instead
 
     def test_add_edge(self):
         doc = graphModel.DocumentGraph()
