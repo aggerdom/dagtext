@@ -11,3 +11,15 @@ g.add_path(('e', 'h'))
 
 # nx.draw(g,labels=labels)
 # plt.show()
+def foo(a, b, c="foo"):
+    """
+
+    :param a:
+    :type a:
+    :param b:
+    :type b:
+    :param c:
+    :type c:
+    :return:
+    :rtype:
+    """

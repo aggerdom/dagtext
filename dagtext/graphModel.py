@@ -291,7 +291,27 @@ class DocumentGraph(object):
         """
         Split a node at a given location, and connect edges as specified in the keyword arguments.
 
-        :rawtext:
+        :param nodeid: Node to be split
+        :param location: Index in the node's text to split the node
+        :param in2head: If True nodes w/ edges to the original node will point to the first part of the split
+        :param in2tail: If True nodes w/ edges to the original node will point to the second part of the split
+        :param head2tail: If True nodes the first part of the split will point to the second part of the split
+        :param head2out: If True, the first part of the split will have edges to all nodes w/ edges from the original node
+        :param tail2out: If True nodes w/ edges to the original node will point to the second part of the split  
+        :param in2out: If True nodes w/ edges to the original node will point to all nodes w/ edges from the original node
+        :type nodeid: int
+        :type location: int
+        :type in2head: bool
+        :type in2tail: bool
+        :type head2tail: bool
+        :type head2out: bool
+        :type tail2out: bool
+        :type in2out: bool
+        :returns edgeidtuple: headid, tailid
+        :rtype:  (Int, Int)
+
+
+            ::
 
                        +----+       +-----------------------+           +----+
                        |Node| ----> |        "head"         | +-------> |Node|
@@ -305,22 +325,6 @@ class DocumentGraph(object):
                 +-------------+    +--------------------------+  +----------------+
                      "in"                  node (arg[1])               "out"
 
-        ARGS:
-            nodeid (int): Node to be split
-            location (int): Index in the node's text to split the node
-
-        KWARGS:
-            in2head (bool): If True nodes w/ edges to the original node will point to the first part of the split
-            in2tail (bool): If True nodes w/ edges to the original node will point to the second part of the split
-            head2tail (bool): If True nodes the first part of the split will point to the second part of the split
-            head2out (bool): If True, the first part of the split will have edges to all nodes w/ edges from the
-                             original node
-            tail2out (bool): If True nodes w/ edges to the original node will point to the second part of the split
-            in2out (bool): If True nodes w/ edges to the original node will point to all nodes w/ edges from the
-                             original node
-
-        RETURNS:
-            (headid, tailid)
         """
 
         text = self.G.node[nodeid]["text"]
